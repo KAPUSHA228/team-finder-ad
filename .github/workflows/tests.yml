@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [main]
 
+
 env:
   POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
   POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
