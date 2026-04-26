@@ -17,7 +17,7 @@ class UserRegisterView(TemplateView):
     def post(self, request, *args, **kwargs):
         form = UserRegistrationForm(request.POST)
         if form.is_valid():
-            # user = form.save()
+            form.save()
             return redirect("users:login")
         return render(request, self.template_name, {"form": form})
 
@@ -80,8 +80,7 @@ class UserEditView(LoginRequiredMixin, UpdateView):
         return context
 
     def form_valid(self, form):
-        # response = super().form_valid(form)
-        return redirect("users:user-detail", user_id=self.request.user.id)
+        return super().form_valid(form)
 
     def get_success_url(self):
         return reverse("users:user-detail", kwargs={"user_id": self.request.user.id})

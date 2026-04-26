@@ -10,3 +10,4 @@ djoser
 pre-commit
 ruff
 black
+gunicorn
