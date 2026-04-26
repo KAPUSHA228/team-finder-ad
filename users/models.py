@@ -1,10 +1,13 @@
-import io
-import random
-
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
-from django.core.files.base import ContentFile
 from django.db import models
-from PIL import Image, ImageDraw, ImageFont
+from utils import generate_avatar_image
+
+USER_NAME_MAX_LENGTH = 124
+USER_SURNAME_MAX_LENGTH = 124
+USER_PHONE_MAX_LENGTH = 12
+USER_ABOUT_MAX_LENGTH = 256
+
+USER_AVATAR_UPLOAD_TO = "avatars/"
 
 
 class CustomUserManager(BaseUserManager):
@@ -26,12 +29,12 @@ class CustomUserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField("email address", unique=True)
-    name = models.CharField(max_length=124)
-    surname = models.CharField(max_length=124)
-    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
-    phone = models.CharField(max_length=12, unique=True, null=True, blank=True)
+    name = models.CharField(max_length=USER_NAME_MAX_LENGTH)
+    surname = models.CharField(max_length=USER_SURNAME_MAX_LENGTH)
+    avatar = models.ImageField(upload_to=USER_AVATAR_UPLOAD_TO, blank=True, null=True)
+    phone = models.CharField(max_length=USER_PHONE_MAX_LENGTH, unique=True, null=True, blank=True)
     github_url = models.URLField(blank=True)
-    about = models.TextField(max_length=256, blank=True)
+    about = models.TextField(max_length=USER_ABOUT_MAX_LENGTH, blank=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
@@ -48,43 +51,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         super().save(*args, **kwargs)
 
     def _generate_avatar(self):
-        img = Image.new("RGB", (200, 200), color=self._get_random_color())
-        draw = ImageDraw.Draw(img)
-
-        letter = self.name[0].upper() if self.name else "?"
-
-        try:
-            font = ImageFont.truetype("arial.ttf", 100)
-        except OSError:
-            font = ImageFont.load_default()
-
-        bbox = draw.textbbox((0, 0), letter, font=font)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-        position = ((200 - text_width) // 2, (200 - text_height) // 2)
-
-        draw.text(position, letter, fill="white", font=font)
-
-        buffer = io.BytesIO()
-        img.save(buffer, format="PNG")
-        buffer.seek(0)
-
-        filename = f'avatar_{self.pk or "new"}.png'
-        self.avatar.save(filename, ContentFile(buffer.read()), save=False)
-
-    def _get_random_color(self):
-        colors = [
-            (100, 149, 237),
-            (144, 238, 144),
-            (255, 182, 193),
-            (221, 160, 221),
-            (173, 216, 230),
-            (255, 218, 185),
-            (176, 224, 230),
-            (240, 230, 140),
-            (255, 160, 122),
-        ]
-        return random.choice(colors)
+        content_file, filename = generate_avatar_image(name=self.name, email=self.email)
+        self.avatar.save(filename, content_file, save=False)
 
     def __str__(self):
         return f"{self.surname} {self.name}"

@@ -4,16 +4,20 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, reverse
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
-
+from http import HTTPStatus
 from .forms import ProjectForm
 from .models import Project, Skill
+
+PROJECTS_PER_PAGE = 12
+SKILL_AUTOCOMPLETE_LIMIT = 10
+PROJECT_STATUS_OPEN = "open"
 
 
 class ProjectListView(ListView):
     model = Project
     template_name = "projects/project_list.html"
     context_object_name = "projects"
-    paginate_by = 12
+    paginate_by = PROJECTS_PER_PAGE
 
     def get_queryset(self):
         qs = Project.objects.select_related("owner").prefetch_related("participants", "skills").order_by("-created_at")
@@ -68,7 +72,7 @@ class ProjectEditView(LoginRequiredMixin, UpdateView):
         return context
 
     def get_queryset(self):
-        return Project.objects.filter(owner=self.request.user)
+        return self.request.user.owned_projects.all()
 
     def get_success_url(self):
         return reverse("projects:project-detail", kwargs={"project_id": self.object.id})
@@ -78,7 +82,7 @@ class ProjectCompleteView(LoginRequiredMixin, View):
     def post(self, request, project_id):
         project = get_object_or_404(Project, pk=project_id)
         if project.owner != request.user or project.status != "open":
-            return JsonResponse({"status": "error"}, status=403)
+            return JsonResponse({"status": "error"}, status=HTTPStatus.FORBIDDEN)
         project.status = "closed"
         project.save()
         return JsonResponse({"status": "ok", "project_status": "closed"})
@@ -87,7 +91,7 @@ class ProjectCompleteView(LoginRequiredMixin, View):
 class ToggleParticipateView(LoginRequiredMixin, View):
     def post(self, request, project_id):
         project = get_object_or_404(Project, pk=project_id)
-        if request.user not in project.participants.all():
+        if not project.participants.filter(pk=request.user.pk).exists():
             project.participants.add(request.user)
             return JsonResponse({"status": "ok", "participant": True})
         project.participants.remove(request.user)
@@ -99,7 +103,7 @@ class SkillAutocompleteView(View):
         q = request.GET.get("q", "").strip()
         if not q:
             return JsonResponse([], safe=False)
-        skills = Skill.objects.filter(name__istartswith=q).order_by("name")[:10]
+        skills = Skill.objects.filter(name__istartswith=q).order_by("name")[:SKILL_AUTOCOMPLETE_LIMIT]
         return JsonResponse([{"id": s.id, "name": s.name} for s in skills], safe=False)
 
 
@@ -107,7 +111,7 @@ class SkillAddView(LoginRequiredMixin, View):
     def post(self, request, project_id):
         project = get_object_or_404(Project, pk=project_id)
         if project.owner != request.user:
-            return JsonResponse({"error": "Forbidden"}, status=403)
+            return JsonResponse({"error": "Forbidden"}, status=HTTPStatus.FORBIDDEN)
 
         data = json.loads(request.body)
         skill_id = data.get("skill_id")
@@ -124,7 +128,7 @@ class SkillAddView(LoginRequiredMixin, View):
             else:
                 created = False
         else:
-            return JsonResponse({"error": "No skill_id or name"}, status=400)
+            return JsonResponse({"error": "No skill_id or name"}, status=HTTPStatus.BAD_REQUEST)
 
         added = False
         if not project.skills.filter(pk=skill.pk).exists():
@@ -138,7 +142,7 @@ class SkillRemoveView(LoginRequiredMixin, View):
     def post(self, request, project_id, skill_id):
         project = get_object_or_404(Project, pk=project_id)
         if project.owner != request.user:
-            return JsonResponse({"error": "Forbidden"}, status=403)
+            return JsonResponse({"error": "Forbidden"}, status=HTTPStatus.FORBIDDEN)
         skill = get_object_or_404(Skill, pk=skill_id)
         project.skills.remove(skill)
         return JsonResponse({"status": "ok"})

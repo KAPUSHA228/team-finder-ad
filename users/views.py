@@ -7,6 +7,8 @@ from django.views.generic import DetailView, ListView, TemplateView, UpdateView
 from .forms import UserEditForm, UserLoginForm, UserRegistrationForm
 from .models import User
 
+USERS_PER_PAGE = 12
+
 
 class UserRegisterView(TemplateView):
     template_name = "users/register.html"
@@ -50,7 +52,7 @@ class UserListView(ListView):
     model = User
     template_name = "users/participants.html"
     context_object_name = "participants"
-    paginate_by = 12
+    paginate_by = USERS_PER_PAGE
 
     def get_queryset(self):
         return User.objects.filter(is_active=True).order_by("-id")

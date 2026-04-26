@@ -5,6 +5,14 @@ from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.forms import PasswordChangeForm as DjangoPasswordChangeForm
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
+from django.db import models
+
+PHONE_LENGTH_RU_STANDARD = 11
+PHONE_LENGTH_RU_WITH_PLUS = 12
+PHONE_PREFIX_8 = "8"
+PHONE_PREFIX_7 = "7"
+PHONE_PREFIX_PLUS = "+"
+PHONE_PREFIXES_RU = (PHONE_PREFIX_8, PHONE_PREFIX_7)
 
 User = get_user_model()
 
@@ -76,24 +84,25 @@ class UserEditForm(forms.ModelForm):
 
         normalized = re.sub(r"[^\d]", "", phone)
         is_valid_format = (
-            (len(normalized) == 11 and normalized.startswith("8"))
-            or (len(normalized) == 11 and normalized.startswith("7"))
-            or (len(normalized) == 12 and normalized.startswith("7") and phone.startswith("+"))
+            len(normalized) == PHONE_LENGTH_RU_STANDARD and normalized.startswith(PHONE_PREFIXES_RU)
+        ) or (
+            len(normalized) == PHONE_LENGTH_RU_WITH_PLUS
+            and normalized.startswith(PHONE_PREFIX_7)
+            and phone.startswith(PHONE_PREFIX_PLUS)
         )
 
         if not is_valid_format:
             raise forms.ValidationError("Неверный формат телефона. Допустимы: 8XXXXXXXXXX или +7XXXXXXXXXX")
 
-        if normalized.startswith("8"):
-            normalized_db = "7" + normalized[1:]
+        if normalized.startswith(PHONE_PREFIX_8):
+            normalized_db = PHONE_PREFIX_7 + normalized[1:]
         else:
-            normalized_db = normalized.lstrip("+")
-        from django.db import models
+            normalized_db = normalized.lstrip(PHONE_PREFIX_PLUS)
 
         existing = User.objects.filter(
             models.Q(phone=normalized_db)
-            | models.Q(phone="+" + normalized_db)
-            | models.Q(phone="8" + normalized_db[1:])
+            | models.Q(phone=PHONE_PREFIX_PLUS + normalized_db)
+            | models.Q(phone=PHONE_PREFIX_8 + normalized_db[1:])
         )
         if self.instance and self.instance.pk:
             existing = existing.exclude(pk=self.instance.pk)
