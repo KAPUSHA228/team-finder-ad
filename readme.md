@@ -105,3 +105,15 @@ python manage.py runserver
 Осталось всего ничего: реализовать весь проект!
 
 Если в процессе разработки способ развертывания приложения поменяется, обновите `readme.md` с пометкой ревьюеру, как запускать и проверять приложение.
+
+## Второй способ через Docker
+
+```bash
+docker compose -f docker-compose.production.yml up --build -d
+```
+
+### Остановка
+
+```bash
+docker compose -f docker-compose.production.yml down
+```
