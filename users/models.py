@@ -1,6 +1,6 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
-from utils import generate_avatar_image
+from .utils import generate_avatar_image
 
 USER_NAME_MAX_LENGTH = 124
 USER_SURNAME_MAX_LENGTH = 124
